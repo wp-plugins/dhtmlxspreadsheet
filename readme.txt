@@ -1,4 +1,4 @@
-=== Event Calendar / Scheduler ===
+=== Spreadsheet ===
 Contributors: dhtmlx
 Donate link: http://dhtmlx.com/docs/products/licenses.shtml
 Tags: spreadsheet, table, data table, datagrid, data grid, excel, database, grid
