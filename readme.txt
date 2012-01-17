@@ -27,7 +27,9 @@ Requirements
 
 1. Upload the content of spreadsheet.zip to the `/wp-content/plugins/` directory
 2. Activate the plugin through the 'Plugins' menu in WordPress
+3. Place anywhere in post or on page [[spreadsheet]] marker
 
+for more details check
 http://docs.dhtmlx.com/doku.php?id=dhtmlxspreadsheet:pluginguide_wordpress
 
 == Frequently Asked Questions ==
