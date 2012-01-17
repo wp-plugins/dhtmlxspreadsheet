@@ -23,7 +23,7 @@ Author URI: http://dhtmlx.com
 */
 
 require_once(ABSPATH.WPINC.'/pluggable.php');
-require_once(WP_PLUGIN_DIR.'/spreadsheet/spreadsheet_common.php');
+require_once(WP_PLUGIN_DIR.'/dhtmlxspreadsheet/spreadsheet_common.php');
 
 global $wpdb, $sh_cfg;
 
@@ -31,8 +31,8 @@ global $wpdb, $sh_cfg;
  */
 $sh_cfg = new SpreadsheetCfg();
 $sh_cfg->set('prefix', $wpdb->prefix);
-$sh_cfg->set('plugin', WP_PLUGIN_URL.'/spreadsheet/');
-$sh_cfg->set('connector', WP_PLUGIN_URL.'/spreadsheet/spreadsheet_data.php');
+$sh_cfg->set('plugin', WP_PLUGIN_URL.'/dhtmlxspreadsheet/');
+$sh_cfg->set('connector', WP_PLUGIN_URL.'/dhtmlxspreadsheet/spreadsheet_data.php');
 $sh_cfg->set('sheet', 1);
 
 register_activation_hook(__FILE__, 'sh_activate');
