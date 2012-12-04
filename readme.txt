@@ -3,7 +3,7 @@ Contributors: dhtmlx
 Donate link: http://dhtmlx.com/docs/products/licenses.shtml
 Tags: spreadsheet, table, data table, datagrid, data grid, excel, database, grid
 Requires at least: 3.0
-Tested up to: 3.3.1
+Tested up to: 3.4.2
 Stable tag: 1.0
 
 
@@ -52,3 +52,14 @@ If something is still not clear - you can ask your question at [dhtmlx support f
 
 = 1.0 =
 Initial release.
+
+= 2.0 =
+Cell validation
+Lock/unlock
+Using database prefix
+Improved ctrl+c/ctrl+v support, support for ctrl+x
+Hotkeys support
+Undo operation
+Copy selection
+Absolute links in formulas (Excel-like functionality)
+Improved copying (relative formulas and styles)
