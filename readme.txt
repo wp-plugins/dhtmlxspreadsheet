@@ -52,5 +52,3 @@ If something is still not clear - you can ask your question at [dhtmlx support f
 
 = 1.0 =
 Initial release.
-
-

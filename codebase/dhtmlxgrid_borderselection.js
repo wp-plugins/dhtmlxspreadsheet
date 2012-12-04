@@ -35,26 +35,26 @@ dhtmlXGridObject.prototype._showBorderSelection = function(border) {
 	// border goes out of grid range
 	var cell1_exists = this.doesCellExist(border.LeftTopRow, border.LeftTopCol);
 	var cell2_exists = this.doesCellExist(border.RightBottomRow, border.RightBottomCol);
-	if ((!cell1_exists) || (!cell2_exists)) return;
+	if ((!cell1_exists) || (!cell2_exists)) return null;
 
 	if (typeof(border.color) === 'undefined')
 		border.color = this.generateBorderColor();
 
 	border.obj = {};
 	border.obj.top = document.createElement('div');
-	border.obj.top.className = 'border_selection_top';
+	border.obj.top.className = 'border_selection_top' + (border.classname ? (' ' + border.classname) : '');
 	border.obj.top.style.borderColor = border.color;
 
 	border.obj.left = document.createElement('div');
-	border.obj.left.className = 'border_selection_left';
+	border.obj.left.className = 'border_selection_left' + (border.classname ? (' ' + border.classname) : '');
 	border.obj.left.style.borderColor = border.color;
 
 	border.obj.bottom = document.createElement('div');
-	border.obj.bottom.className = 'border_selection_bottom';
+	border.obj.bottom.className = 'border_selection_bottom' + (border.classname ? (' ' + border.classname) : '');
 	border.obj.bottom.style.borderColor = border.color;
 
 	border.obj.right = document.createElement('div');
-	border.obj.right.className = 'border_selection_right';
+	border.obj.right.className = 'border_selection_right' + (border.classname ? (' ' + border.classname) : '');
 	border.obj.right.style.borderColor = border.color;
 
 
@@ -63,24 +63,26 @@ dhtmlXGridObject.prototype._showBorderSelection = function(border) {
 	var cell2 = this.cells(border.RightBottomRow, border.RightBottomCol).cell;
 	var pos1 = this.getPosition(cell1);
 	var pos2 = this.getPosition(cell2);
+	var x1, x2, y1, y2;
+	var borderwidth = 2;
 	if (pos2[0] > pos1[0]) {
-		var x1 = pos1[0];
-		var x2 = pos2[0] + cell2.offsetWidth;
+		x1 = pos1[0];
+		x2 = pos2[0] + cell2.offsetWidth;
 	} else {
-		var x1 = pos2[0];
-		var x2 = pos1[0] + cell1.offsetWidth;
+		x1 = pos2[0];
+		x2 = pos1[0] + cell1.offsetWidth;
 	}
 	if (pos2[1] > pos1[1]) {
-		var y1 = pos1[1];
-		var y2 = pos2[1] + cell2.offsetHeight;
+		y1 = pos1[1];
+		y2 = pos2[1] + cell2.offsetHeight;
 	} else {
-		var y1 = pos2[1];
-		var y2 = pos1[1] + cell1.offsetHeight;
+		y1 = pos2[1];
+		y2 = pos1[1] + cell1.offsetHeight;
 	}
 	var x = (x1 - offset[0]);
 	var y = (y1 - offset[1]);
-	var width = (Math.abs(x1 - x2) - 2);
-	var height = (Math.abs(y1 - y2) - 2);
+	var width = (Math.abs(x1 - x2) - borderwidth);
+	var height = (Math.abs(y1 - y2) - borderwidth);
 	border.obj.top.style.left = x + 'px';
 	border.obj.top.style.top = y + 'px';
 	border.obj.top.style.width = width + 'px';
@@ -101,6 +103,7 @@ dhtmlXGridObject.prototype._showBorderSelection = function(border) {
 	this.objBox.appendChild(border.obj.left);
 	this.objBox.appendChild(border.obj.bottom);
 	this.objBox.appendChild(border.obj.right);
+	return border;
 };
 
 dhtmlXGridObject.prototype.getPosition = function(e) {
@@ -140,12 +143,13 @@ dhtmlXGridObject.prototype.setColorsBorderSelection = function() {
 };
 
 dhtmlXGridObject.prototype.generateBorderColor = function() {
+	var color;
 	if (typeof(this._borders_colors) === 'undefined')
 		// the most popular colors
 		this.setColorsBorderSelection();
 	if (this._borders_colors.length === 0) {
 		// generate any color
-		var color = '#';
+		color = '#';
 		for (var i = 0; i < 3; i++) {
 			var c = Math.round(Math.random()*254).toString(16).toLowerCase();
 			if (c.length == 1) c = '0' + c;
@@ -156,7 +160,7 @@ dhtmlXGridObject.prototype.generateBorderColor = function() {
 	}
 
 	var index = 0;
-	var color = this._borders_colors[index];
+	color = this._borders_colors[index];
 	this._borders_colors.splice(index, 1);
 	return color;
 };
@@ -266,6 +270,7 @@ dhtmlXGridObject.prototype.startBorderSelection = function(e) {
 		e = e || event;
 		self.endBorderSelection(e);
 	};
+	return true;
 };
 
 dhtmlXGridObject.prototype.moveBorderSelection = function(e) {
@@ -346,6 +351,7 @@ dhtmlXGridObject.prototype.moveBorderSelection = function(e) {
 		var self = this;
 		this._blsTimer=window.setTimeout(function(){ self.moveBorderSelection({clientX:a,clientY:b}); },100);
 	}
+	return true;
 };
 
 dhtmlXGridObject.prototype.endBorderSelection = function(e) {

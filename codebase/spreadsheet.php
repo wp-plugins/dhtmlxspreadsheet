@@ -23,7 +23,12 @@ $js_depends = Array(
 	'dhtmlxsh_config.js',
 	'dhtmlxsh_headedit.js',
 	'dhtmlxsh_mathhint.js',
-	'dhtmlxsh_modal.js'
+	'dhtmlxsh_modal.js',
+	'dhtmlxsh_selection.js',
+	'dhtmlxsh_undo.js',
+	'dhtmlxsh_context.js',
+	'dhtmlxsh_export.js',
+	'dhtmlxsh_keys.js'
 );
 
 

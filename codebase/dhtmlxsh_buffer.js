@@ -7,24 +7,48 @@ SpreadsheetBuffer = {
 
 	area_id: 'spreadsheet_buffer_area',
 	area: null,
+	coords: null,
+	cmd: 0,
 
 	init: function() {
+		if (SpreadsheetBuffer.area) return true;
 		this.getArea();
-		dhtmlxEvent(document.body, "keyup", function(e) {
+		dhtmlxEvent(document.body, "keydown", function(e) {
 			if (!SpreadsheetBuffer.callback) return true;
-			var code = e.charCode || e.keyCode || 0;
+			var code = e.which;
 			var ctrl = e.ctrlKey || false;
+			var meta = e.metaKey || false;
 			// insert functionality
-			if (code == 86 && ctrl === true) {
+			if (code == 86 && (ctrl === true || meta === true)) {
 				SpreadsheetBuffer.from_area();
+				SpreadsheetBuffer.unselect(SpreadsheetBuffer.callback);
 			}
-			// clear functionality
-			if (code === 46 && ctrl === false) {
-				if (SpreadsheetBuffer.callback && SpreadsheetBuffer.callback.grid.editor !== null)
+			// ctrl + c
+			if (code == 67 && (ctrl === true || meta === true)) {
+				SpreadsheetBuffer.callback.dumpCopy();
+				SpreadsheetBuffer.select(SpreadsheetBuffer.callback);
+			}
+			// ctrl + x
+			if (code == 88 && (ctrl === true || meta === true)) {
+				SpreadsheetBuffer.callback.dumpCopy();
+				SpreadsheetBuffer.select(SpreadsheetBuffer.callback);
+				SpreadsheetBuffer.from_area();
+				SpreadsheetBuffer.callback.mapSelection(function(row, col) {
+					if (this.isLocked(row, col)) return false;
+					var style = this.getCellStyle(row, col);
+					style.set('bgcolor', 'ffffff');
+					style.set('color', '000000');
+					style.set('bold', 'false');
+					style.set('italic', 'false');
+					style.set('align', 'left');
+					style.set('lock', 'false');
+					style.set('validator', 'false');
+					SpreadsheetBuffer.callback.applyStyles(row, col);
+					this.renderCell(row, col);
 					return true;
-				SpreadsheetBuffer.getArea().value = "";
-				SpreadsheetBuffer.from_area();
+				});
 			}
+			return true;
 		});
 	},
 
@@ -50,21 +74,46 @@ SpreadsheetBuffer = {
 		if (typeof(callback) != "undefined") {
 			SpreadsheetBuffer.callback = callback;
 		}
+		var text;
 		if (coords === null)
-			var text = "";
+			text = "";
 		else {
-			var text = callback.getBlockText(coords);
+			text = callback.getBlockText(coords);
 		}
 		SpreadsheetBuffer.area.value = text;
+		SpreadsheetBuffer.range = coords;
 		window.setTimeout(function() {
+			if (callback.dont_lose_focus) return false;
 			SpreadsheetBuffer.area.focus();
 			SpreadsheetBuffer.area.select();
 		}, 1);
 	},
 
 	from_area: function() {
-		var text = SpreadsheetBuffer.area.value;
-		if (SpreadsheetBuffer.callback.grid.editor) return false;
-		SpreadsheetBuffer.callback.setBlockText(text);
+		window.setTimeout(function() {
+			var text = SpreadsheetBuffer.area.value;
+			if (SpreadsheetBuffer.callback.grid.editor) return false;
+			SpreadsheetBuffer.callback.setBlockText(text);
+			SpreadsheetBuffer.area.focus();
+			SpreadsheetBuffer.area.select();
+			return true;
+		}, 100);
+	},
+
+	select: function(ssheet) {
+		if (!SpreadsheetBuffer.range) return false;
+		var r = SpreadsheetBuffer.range;
+		r.color = "#9E9E9E";
+		r.classname = 'solid';
+
+		this.unselect(ssheet);
+		delete r.obj;
+		this._copyborder = ssheet.grid._showBorderSelection(r);
+		return true;
+	},
+	unselect: function(ssheet) {
+		if (this._copyborder)
+			ssheet.grid._unsetBorderSelection(this._copyborder.obj);
+		this._copyborder = null;
 	}
 };

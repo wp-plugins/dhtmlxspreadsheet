@@ -9,11 +9,13 @@
 
 
 
+$db_type = "MySQL";
 $db_host = "localhost";
+$db_port = "3306";
 $db_user = "root";
 $db_pass = "";
 $db_name = "sampledb";
-$db_prefix = "";
+$db_prefix = "dhx_";
 
 $username = "admin";
 $password = "qwert";

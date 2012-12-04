@@ -11,28 +11,28 @@
 /**
  * @package Spreadsheet
  * @author DHTMLX LTD
- * @version 1.0
+ * @version 2.0
  */
 /*
 Plugin Name: Spreadsheet
 Plugin URI: http://wordpress.org/extend/plugins/spreadsheet/
-Description: This plugin allows you to quickly create an Excel-like, editable spreadsheet with basic cell formatting and math functions support.
+Description: dhtmlxSpreadsheet is based on the dhtmlxGrid JavaScript component which supports the most essential features for displaying and formatting tabular data
 Author: DHTMLX LTD
-Version: 1.0
+Version: 2.0
 Author URI: http://dhtmlx.com
 */
 
 require_once(ABSPATH.WPINC.'/pluggable.php');
-require_once(WP_PLUGIN_DIR.'/dhtmlxspreadsheet/spreadsheet_common.php');
+require_once(WP_PLUGIN_DIR.'/spreadsheet/spreadsheet_common.php');
 
 global $wpdb, $sh_cfg;
 
 /*! initialize configs
  */
 $sh_cfg = new SpreadsheetCfg();
-$sh_cfg->set('prefix', $wpdb->prefix);
-$sh_cfg->set('plugin', WP_PLUGIN_URL.'/dhtmlxspreadsheet/');
-$sh_cfg->set('connector', WP_PLUGIN_URL.'/dhtmlxspreadsheet/spreadsheet_data.php');
+$sh_cfg->set('prefix', $wpdb->prefix.'dhx_');
+$sh_cfg->set('plugin', WP_PLUGIN_URL.'/spreadsheet/');
+$sh_cfg->set('connector', WP_PLUGIN_URL.'/spreadsheet/spreadsheet_data.php');
 $sh_cfg->set('sheet', 1);
 
 register_activation_hook(__FILE__, 'sh_activate');
@@ -89,14 +89,38 @@ function sh_init() {
 
 function sh_load_dump($drop = false) {
 	global $wpdb, $sh_cfg;
-	$query = "SELECT * FROM ".$wpdb->prefix."data";
+	$query = "SELECT * FROM ".$wpdb->prefix."dhx_data";
 	$result = $wpdb->query($query);
 	if ($result == false) {
-		$queries = $sh_cfg->get('queries');
-		for ($i = 0; $i < count($queries); $i++) {
-			$query = str_replace('#__', $wpdb->prefix, $queries[$i]);
-			$wpdb->query($query);
+		$query = "SELECT * FROM ".$wpdb->prefix."data";
+		$result = $wpdb->query($query);
+		if ($result == false) {
+			$queries = $sh_cfg->get('queries');
+			for ($i = 0; $i < count($queries); $i++) {
+				$query = str_replace('#__', $wpdb->prefix, $queries[$i]);
+				$wpdb->query($query);
+			}
+		} else {
+			// rename tables
+			$tables_list = array("data", "header", "sheet", "triggers", "user");
+			for ($i = 0; $i < count($tables_list); $i++)
+				$wpdb->query("ALTER TABLE {$wpdb->prefix}{$tables_list[$i]} RENAME TO {$wpdb->prefix}dhx_{$tables_list[$i]}");
 		}
+	}
+	$query = "SELECT sheetid FROM {$wpdb->prefix}dhx_triggers LIMIT 1";
+	$res = $wpdb->query($query);
+	if ($res === false) {
+		// migrate call
+		$cwd = getcwd();
+
+		chdir(WP_PLUGIN_DIR.'/spreadsheet/codebase/php/');
+		require_once('migrate.php');
+		require_once('db_common.php');
+		chdir($cwd);
+		
+		$wrapper = new MySQLDBDataWrapper($wpdb->dbh, null);
+		$mig = new dhxMigrate($wrapper, $wpdb->prefix.'dhx_');
+		$mig->update();
 	}
 }
 

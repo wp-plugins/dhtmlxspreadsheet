@@ -9,8 +9,7 @@
 
 
 
-require_once('mysql.php');
-require_once('log_master.php');
+require_once('db_common.php');
 
 class SpreadSheet {
 
@@ -25,9 +24,14 @@ class SpreadSheet {
 	 *	@param sheetid
 	 *		id of sheet
 	 */
-	public function __construct($connection, $sheetid, $prefix) {
+	public function __construct($connection, $sheetid, $prefix, $db_type) {
 		$this->connection = $connection;
-		$this->wrapper = new mysql($connection);
+		$driver_name = $db_type.'DBDataWrapper';
+		if (class_exists($driver_name))
+			$this->wrapper = new $driver_name($connection, null);
+		else
+			throw new Exception("Data driver is not found");
+		$this->db_type = $db_type;
 		$this->sheetid = $sheetid;
 		$this->prefix = $prefix;
 	}
@@ -87,7 +91,7 @@ class SpreadSheet {
 	 *		cell object
 	 */
 	public function getCell($coord) {
-		$cell = new SpreadSheetCell($this->connection, $this->sheetid, $coord, $this->prefix);
+		$cell = new SpreadSheetCell($this->connection, $this->sheetid, $coord, $this->prefix, $this->db_type);
 		return $cell;
 	}
 
@@ -98,7 +102,7 @@ class SpreadSheet {
 	 *		cell object or false
 	 */
 	public function isCell($coord) {
-		$cell = new SpreadSheetCell($this->connection, $this->sheetid, $coord, $this->prefix);
+		$cell = new SpreadSheetCell($this->connection, $this->sheetid, $coord, $this->prefix, $this->db_type);
 		if ($cell->isIncorrect())
 			return false;
 		return $cell;
@@ -118,12 +122,16 @@ class SpreadSheet {
 	 */
 	public function getCells() {
 		$cells = Array();
-		$query = "SELECT `rowid`, `columnid` FROM {$this->prefix}data WHERE `sheetid`='{$this->sheetid}'";
+		$query = "SELECT `rowid`, `columnid` FROM {$this->prefix}data WHERE `sheetid`='".$this->e($this->sheetid)."'";
 		$res = $this->wrapper->query($query);
-		while ($coord = $this->wrapper->next($res)) {
-			$cells[] = new SpreadSheetCell($this->connection, $this->sheetid, $coord, $this->prefix);
+		while ($coord = $this->wrapper->get_next($res)) {
+			$cells[] = new SpreadSheetCell($this->connection, $this->sheetid, $coord, $this->prefix, $this->db_type);
 		}
 		return $cells;
+	}
+	
+	protected function e($str) {
+		return $this->wrapper->escape($str);
 	}
 
 }
@@ -146,8 +154,12 @@ class SpreadSheetCell {
 	 *	@param coord
 	 *		cell coordinate
 	 */
-	public function __construct($connection, $sheetid, $coord, $prefix = '') {
-		$this->wrapper = new mysql($connection);
+	public function __construct($connection, $sheetid, $coord, $prefix = '', $db_type = 'MySQL') {
+		$driver_name = $db_type.'DBDataWrapper';
+		if (class_exists($driver_name))
+			$this->wrapper = new $driver_name($connection, null);
+		else
+			throw new Exception("Data driver is not found");
 		$this->sheetid = $sheetid;
 		$this->prefix = $prefix;
 		$coords = $this->parse_coord($coord);
@@ -166,7 +178,7 @@ class SpreadSheetCell {
 	 *	@return
 	 *		array ('col' => $col, 'row' => $row, 'colLetter' => colLetter)
 	 */
-	public function parse_coord($coord) {
+	public static function parse_coord($coord) {
 
 		if (is_array($coord)) {
 			if (isset($coord[0])) $row = $coord[0];
@@ -227,13 +239,13 @@ class SpreadSheetCell {
 	 *		true if cell exists false otherwise (even if cell was created return false)
 	 */
 	public function exists($dont_create = false) {
-		$query = "SELECT `data` FROM {$this->prefix}data WHERE `sheetid`='{$this->sheetid}' AND `rowid`='{$this->row}' AND `columnid`='{$this->col}'";
+		$query = "SELECT `data` FROM {$this->prefix}data WHERE `sheetid`='".$this->e($this->sheetid)."' AND `rowid`='".$this->e($this->row)."' AND `columnid`='".$this->e($this->col)."'";
 		$result = $this->wrapper->query($query);
-		if ($this->wrapper->next($result))
+		if ($this->wrapper->get_next($result))
 			return true;
 		else {
 			if (!$dont_create) {
-				$query = "INSERT INTO `{$this->prefix}data` (`sheetid`, `rowid`, `columnid`) VALUES ('{$this->sheetid}', '{$this->row}', '{$this->col}')";
+				$query = "INSERT INTO `{$this->prefix}data` (`sheetid`, `rowid`, `columnid`) VALUES ('".$this->e($this->sheetid)."', '".$this->e($this->row)."', '".$this->e($this->col)."')";
 				$this->wrapper->query($query);
 			}
 			// echo create new cell
@@ -276,10 +288,10 @@ class SpreadSheetCell {
 	 *		cell text or false if not exists
 	 */
 	public function getValue() {
-		$query = "SELECT `data` FROM {$this->prefix}data WHERE `sheetid`='{$this->sheetid}' AND `rowid`='{$this->row}' AND `columnid`='{$this->col}'";
+		$query = "SELECT `data` FROM {$this->prefix}data WHERE `sheetid`='".$this->e($this->sheetid)."' AND `rowid`='".$this->e($this->row)."' AND `columnid`='".$this->e($this->col)."'";
 		$result = $this->wrapper->query($query);
 		if (!$result) return false;
-		$cell = $this->wrapper->next($result);
+		$cell = $this->wrapper->get_next($result);
 		return $cell['data'];
 	}
 
@@ -291,7 +303,7 @@ class SpreadSheetCell {
 	 */
 	public function setValue($text) {
 		$this->exists();
-		$query = "UPDATE data SET `data`='{$text}' WHERE `sheetid`='{$this->sheetid}' AND `rowid`='{$this->row}' AND `columnid`='{$this->col}'";
+		$query = "UPDATE data SET `data`='".$this->e($text)."' WHERE `sheetid`='".$this->e($this->sheetid)."' AND `rowid`='".$this->e($this->row)."' AND `columnid`='".$this->e($this->col)."'";
 		$result = $this->wrapper->query($query);
 		return $result;
 	}
@@ -301,10 +313,10 @@ class SpreadSheetCell {
 	 *		cell text or false if not exists
 	 */
 	public function getCalculatedValue() {
-		$query = "SELECT `calc` FROM {$this->prefix}data WHERE `sheetid`='{$this->sheetid}' AND `rowid`='{$this->row}' AND `columnid`='{$this->col}'";
+		$query = "SELECT `calc` FROM {$this->prefix}data WHERE `sheetid`='".$this->e($this->sheetid)."' AND `rowid`='".$this->e($this->row)."' AND `columnid`='".$this->e($this->col)."'";
 		$result = $this->wrapper->query($query);
 		if (!$result) return false;
-		$cell = $this->wrapper->next($result);
+		$cell = $this->wrapper->get_next($result);
 		if ($cell['calc'] === '')
 			return '0';
 		return $cell['calc'];
@@ -315,10 +327,10 @@ class SpreadSheetCell {
 	 *		cell text or false if not exists
 	 */
 	public function getParsedValue() {
-		$query = "SELECT `parsed` FROM {$this->prefix}data WHERE `sheetid`='{$this->sheetid}' AND `rowid`='{$this->row}' AND `columnid`='{$this->col}'";
+		$query = "SELECT `parsed` FROM {$this->prefix}data WHERE `sheetid`='".$this->e($this->sheetid)."' AND `rowid`='".$this->e($this->row)."' AND `columnid`='".$this->e($this->col)."'";
 		$result = $this->wrapper->query($query);
 		if (!$result) return false;
-		$cell = $this->wrapper->next($result);
+		$cell = $this->wrapper->get_next($result);
 		return $cell['parsed'];
 	}
 
@@ -327,10 +339,10 @@ class SpreadSheetCell {
 	 *		cell style as array
 	 */
 	public function getStyle() {
-		$query = "SELECT `style` FROM {$this->prefix}data WHERE `sheetid`='{$this->sheetid}' AND `rowid`='{$this->row}' AND `columnid`='{$this->col}'";
+		$query = "SELECT `style` FROM {$this->prefix}data WHERE `sheetid`='".$this->e($this->sheetid)."' AND `rowid`='".$this->e($this->row)."' AND `columnid`='".$this->e($this->col)."'";
 		$result = $this->wrapper->query($query);
 		if (!$result) return false;
-		$cell = $this->wrapper->next($result);
+		$cell = $this->wrapper->get_next($result);
 		return $this->parseStyle($cell['style']);
 	}
 
@@ -344,7 +356,7 @@ class SpreadSheetCell {
 		$this->exists();
 		if (is_array($style))
 			$style = $this->serializeStyle($style);
-		$query = "UPDATE {$this->prefix}data SET `style`='{$style}' WHERE `sheetid`='{$this->sheetid}' AND `rowid`='{$this->row}' AND `columnid`='{$this->col}'";
+		$query = "UPDATE {$this->prefix}data SET `style`='".$this->e($style)."' WHERE `sheetid`='".$this->e($this->sheetid)."' AND `rowid`='".$this->e($this->row)."' AND `columnid`='".$this->e($this->col)."'";
 		$result = $this->wrapper->query($query);
 		return $result;
 	}
@@ -358,9 +370,9 @@ class SpreadSheetCell {
 	public function parseStyle($style) {
 		$style = explode(";", $style);
 		$rules = Array();
+		$names = Array("bold", "italic", "color", "bgcolor", "align", "validator", "lock");
 		for ($i = 0; $i < count($style); $i++) {
-			$rule = explode(":", $style[$i]);
-			$rules[trim($rule[0])] = trim($rule[1]);
+			$rules[$names[$i]] = $style[$i];
 		}
 		return $rules;
 	}
@@ -419,6 +431,9 @@ class SpreadSheetCell {
 		return $this->incorrect;
 	}
 
+	protected function e($str) {
+		return $this->wrapper->escape($str);
+	}
 }
 
 

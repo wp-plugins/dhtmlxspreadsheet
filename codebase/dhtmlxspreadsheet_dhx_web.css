@@ -57,3 +57,7 @@ div.gridbox_dhx_web.spreadsheet {
 	font-family: Tahoma;
 	line-height: normal;
 }
+
+.selectall {
+	border-color: #6B6B6B !important;
+}

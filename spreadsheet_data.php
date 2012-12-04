@@ -29,7 +29,7 @@ $available_to = Array(
 	'editor' => true
 );
 
-$conn = new GridCellConnector($res, $table_prefix);
+$conn = new GridCellConnector($res, $table_prefix."dhx_");
 if (!isset($available_to[$usertype]) || $available_to[$usertype] == false)
 	$conn->set_read_only(true);
 $conn->render();

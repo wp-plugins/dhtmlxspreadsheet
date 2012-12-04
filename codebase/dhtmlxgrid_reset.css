@@ -3,10 +3,8 @@ div.gridbox table.obj.row20px tr td {
 	vertical-align: middle !important;
 	padding-left: 4px !important;
 	padding-right: 4px !important;
-	padding-top: 0px !important;
 	padding-bottom: 0px !important;
 	border-collapse: separate !important;
-	border-top: 1px solid #DDDDDD !important;
 }
 
 div.gridbox table.obj th, div.gridbox table.hdr th {
@@ -33,14 +31,7 @@ div.gridbox table.hdr {
 
 div.gridbox table.obj.row20px {
 	margin: 0px !important;
-}
-
-div.gridbox table.obj.row20px {
 	border-collapse: separate !important;
-}
-
-div.gridbox_dhx_skyblue table.obj tr.rowselected td.cellselected {
-	border-top: 1px solid #FFC341 !important;
 }
 
 div.gridbox table.obj tr td.editable {

@@ -20,7 +20,7 @@ class SpreadsheetCfg {
 		'height' => 'auto',
 		'skin' => 'dhx_skyblue',
 		'queries' => Array(
-			"CREATE TABLE IF NOT EXISTS `#__data` (
+			"CREATE TABLE IF NOT EXISTS `#__dhx_data` (
 			  `sheetid` varchar(255) DEFAULT NULL,
 			  `columnid` int(11) DEFAULT NULL,
 			  `rowid` int(11) DEFAULT NULL,
@@ -31,7 +31,7 @@ class SpreadsheetCfg {
 			  PRIMARY KEY (`sheetid`,`columnid`,`rowid`)
 			) ENGINE=MyISAM DEFAULT CHARSET=utf8",
 
-			"CREATE TABLE IF NOT EXISTS `#__header` (
+			"CREATE TABLE IF NOT EXISTS `#__dhx_header` (
 			  `sheetid` varchar(255) DEFAULT NULL,
 			  `columnid` int(11) DEFAULT NULL,
 			  `label` varchar(255) DEFAULT NULL,
@@ -39,7 +39,7 @@ class SpreadsheetCfg {
 			  PRIMARY KEY (`sheetid`,`columnid`)
 			) ENGINE=MyISAM DEFAULT CHARSET=utf8",
 
-			"CREATE TABLE IF NOT EXISTS `#__sheet` (
+			"CREATE TABLE IF NOT EXISTS `#__dhx_sheet` (
 			  `sheetid` varchar(255) NOT NULL,
 			  `userid` int(11) DEFAULT NULL,
 			  `name` varchar(255) DEFAULT NULL,
@@ -48,9 +48,9 @@ class SpreadsheetCfg {
 			  PRIMARY KEY (`sheetid`)
 			) ENGINE=MyISAM AUTO_INCREMENT=1 DEFAULT CHARSET=utf8",
 
-			"INSERT INTO `#__sheet` VALUES ('demo_sheet', null, null, 'any_key', null)",
+			"INSERT INTO `#__dhx_sheet` VALUES ('demo_sheet', null, null, 'any_key', null)",
 
-			"CREATE TABLE IF NOT EXISTS `#__user` (
+			"CREATE TABLE IF NOT EXISTS `#__dhx_user` (
 			  `userid` int(11) NOT NULL AUTO_INCREMENT,
 			  `apikey` varchar(255) DEFAULT NULL,
 			  `email` varchar(255) DEFAULT NULL,
@@ -59,8 +59,9 @@ class SpreadsheetCfg {
 			  PRIMARY KEY (`userid`)
 			) ENGINE=MyISAM AUTO_INCREMENT=1 DEFAULT CHARSET=utf8",
 			
-			"CREATE TABLE IF NOT EXISTS `#__triggers` (
+			"CREATE TABLE IF NOT EXISTS `#__dhx_triggers` (
 			  `id` int(11) NOT NULL AUTO_INCREMENT,
+			  `sheetid` varchar(255) DEFAULT NULL,
 			  `trigger` varchar(10) DEFAULT NULL,
 			  `source` varchar(10) DEFAULT NULL,
 			  PRIMARY KEY (`id`)
@@ -131,7 +132,7 @@ class SpreadsheetCfg {
 			$init .= "dhtmlxEvent(window, 'load', onload_func_{$uid});";
 			$this->set('first_time', false);
 		} else
-			$init .= "onload_func();";
+			$init .= "onload_func_{$uid}();";
 
 		$html = "<div id='spreadsheet_box_{$uid}' style='width: {$this->get('width')}; height: {$this->get('height')}; background-color:white;'></div>\n\n";
 

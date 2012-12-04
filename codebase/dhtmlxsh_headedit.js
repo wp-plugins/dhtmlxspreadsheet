@@ -50,7 +50,6 @@ var SpreadSheetHeaderEditor = {
 		value  = value.replace(/</g, '&lt;');
 		value  = value.replace(/>/g, '&gt;');
 		SpreadSheetHeaderEditor.target.removeChild(SpreadSheetHeaderEditor.ed);
-//		SpreadSheetHeaderEditor.target.parentNode.style.padding = SpreadSheetHeaderEditor.target.parentNode.style._padding;
 		SpreadSheetHeaderEditor.target.innerHTML = value;
 		SpreadSheetHeaderEditor.target.className = SpreadSheetHeaderEditor.target.className.replace(' no_paddings', '');
 		SpreadSheetHeaderEditor.target.parentNode.className = SpreadSheetHeaderEditor.target.parentNode.className.replace(' no_paddings_parent', '');

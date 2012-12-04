@@ -3,7 +3,12 @@
  Licensing: You allowed to use this component for free under GPL or you need to obtain Commercial/Enterprise license to use it in non-GPL project
  Contact: sales@dhtmlx.com
  **/
-if (typeof(SpreadSheetMathHint) === 'undefined')
+/*
+ (c) DHTMLX Ltd, 2011
+ Licensing: You allowed to use this component for free under GPL or you need to obtain Commercial/Enterprise license to use it in non-GPL project
+ Contact: sales@dhtmlx.com
+ */
+ if (typeof(SpreadSheetMathHint) === 'undefined')
 	var SpreadSheetMathHint;
 
 function eXcell_edsh(cell){
@@ -17,7 +22,7 @@ function eXcell_edsh(cell){
 		this.val=this.getRealValue();
 		this.obj=document.createElement(this.cell.atag);
 		this.obj.setAttribute("autocomplete", "off");
-		this.obj.style.height=(this.cell.offsetHeight-(_isIE ? 4 : 4))+"px";
+		this.obj.style.height=(this.cell.offsetHeight-(_isIE ? 8 : 4))+"px";
 		this.obj.className="dhx_combo_edit";
 		this.obj.wrap="soft";
 		this.obj.style.textAlign=this.cell.style.textAlign;
@@ -100,7 +105,8 @@ function eXcell_edsh(cell){
 	};
 
 	this.setCValue=function(val, val2){
-		this.cell.innerHTML='';
+		this.cell._clearCell=true;
+		this.cell.innerHTML='&nbsp;';
 		this.cell.appendChild(document.createTextNode(val));
 		this.cell.setAttribute('real_value', (val2 || val));
 		this.cell.setAttribute('formatted_value', val);

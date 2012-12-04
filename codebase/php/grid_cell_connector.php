@@ -9,9 +9,8 @@
 
 
 
-require_once('mysql.php');
+require_once('db_common.php');
 require_once('request.php');
-require_once('log_master.php');
 require_once('math.php');
 require_once('api.php');
 
@@ -25,12 +24,17 @@ class GridCellConnector {
 	protected $api = null;
 	protected $db_prefix;
 
-	public function __construct($connection, $db_prefix) {
+	public function __construct($connection, $db_prefix, $db_type = 'MySQL') {
 		$this->connection = $connection;
 		$this->db_prefix = $db_prefix;
 		$this->request = new Request();
+		$this->db_type = $db_type;
 		$this->driver = new jsonDriver();
-		$this->wrapper = new mysql($connection);
+		$driver_name = $db_type.'DBDataWrapper';
+		if (class_exists($driver_name))
+			$this->wrapper = new $driver_name($connection, null);
+		else
+			throw new Exception("Data driver is not found");
 		$this->math = new Math();
 	}
 
@@ -39,7 +43,7 @@ class GridCellConnector {
 	public function render() {
 		$edit = $this->request->get("edit");
 		$sheet = $this->request->get("sheet");
-		$this->api = new SpreadSheet($this->connection, $sheet, $this->db_prefix);
+		$this->api = new SpreadSheet($this->connection, $sheet, $this->db_prefix, $this->db_type);
 		if ($edit == false)
 			$this->get_data();
 		else
@@ -63,43 +67,44 @@ class GridCellConnector {
 			$this->save_config();
 
 		// getting data from database
-		$res = $this->wrapper->query("SELECT * FROM {$this->db_prefix}data WHERE sheetid='{$sheet}'");
+		$res = $this->wrapper->query("SELECT * FROM {$this->db_prefix}data WHERE sheetid='".$this->e($sheet)."'");
 		$data = Array();
-		while ($item = $this->wrapper->next($res))
+		while ($item = $this->wrapper->get_next($res))
 			$data[] = $item;
 
 		// getting header from database
-		$res = $this->wrapper->query("SELECT * FROM {$this->db_prefix}header WHERE sheetid='{$sheet}'");
+		$res = $this->wrapper->query("SELECT * FROM {$this->db_prefix}header WHERE sheetid='".$this->e($sheet)."'");
 		$head = Array();
-		while ($item = $this->wrapper->next($res))
+		while ($item = $this->wrapper->get_next($res))
 			$head[] = $item;
 
 		// getting ssheet config
-		$res = $this->wrapper->query("SELECT * FROM {$this->db_prefix}sheet WHERE sheetid='{$sheet}'");
-		$sheet_obj = $this->wrapper->next($res);
+		$res = $this->wrapper->query("SELECT * FROM {$this->db_prefix}sheet WHERE sheetid='".$this->e($sheet)."'");
+		$sheet_obj = $this->wrapper->get_next($res);
 		if ($sheet_obj == false)
-			$res = $this->wrapper->query("INSERT INTO {$this->db_prefix}sheet (sheetid) VALUES ('{$sheet}')");
+			$res = $this->wrapper->query("INSERT INTO {$this->db_prefix}sheet (sheetid) VALUES ('".$this->e($sheet)."')");
 
 		$out = $this->driver->start($sheet, $config, $read_only_mode);
 
 		$heads = Array();
+		$out .= $this->driver->headStart();
 		for ($i = 0; $i < count($head); $i++)
 			$heads[] = $this->driver->headToOut($head[$i]);
-		$out .= $this->driver->headStart();
 		$out .= implode($this->driver->separator(), $heads);
 		$out .= $this->driver->headEnd();
 
+		$out .= $this->driver->cellsStart();
 		$cells = Array();
 		for ($i = 0; $i < count($data); $i++) {
 			$cell = $data[$i];
 			if (!$this->is_math()) $cell['calc'] = $cell['data'];
 			$cells[] = $this->driver->cellToOut($cell);
 		}
-		$out .= $this->driver->cellsStart();
+
 		$out .= implode($this->driver->separator(), $cells);
 		$out .= $this->driver->cellsEnd();
 
-		$out .= $this->driver->end($sheet);
+		$out = $this->driver->end($sheet);
 		$this->out($out);
 	}
 
@@ -127,11 +132,11 @@ class GridCellConnector {
 
 		$sheet = $this->request->get("sheet");
 		$config = $this->request->get('sh_cfg');
-		$res = $this->wrapper->query("SELECT * FROM {$this->db_prefix}sheet WHERE sheetid='{$sheet}'");
-		if ($this->wrapper->next($res)) {
-			$res = $this->wrapper->query("UPDATE {$this->db_prefix}sheet SET cfg='{$config}' WHERE sheetid='{$sheet}'");
+		$res = $this->wrapper->query("SELECT * FROM {$this->db_prefix}sheet WHERE sheetid='".$this->e($sheet)."'");
+		if ($this->wrapper->get_next($res)) {
+			$res = $this->wrapper->query("UPDATE {$this->db_prefix}sheet SET cfg='".$this->e($config)."' WHERE sheetid='".$this->e($sheet)."'");
 		} else {
-			$this->wrapper->query("INSERT INTO {$this->db_prefix}sheet (sheetid, cfg) VALUES ('{$sheet}', '{$config}')");
+			$this->wrapper->query("INSERT INTO {$this->db_prefix}sheet (sheetid, cfg) VALUES ('".$this->e($sheet)."', '".$this->e($config)."')");
 		}
 	}
 
@@ -159,6 +164,7 @@ class GridCellConnector {
 		$responses = Array();
 		for ($i = 0; $i < count($cells); $i++)
 			$cells[$i] = $this->parseCellValue($cells[$i]);
+
 		for ($i = 0; $i < count($cells); $i++)
 			$responses = array_merge($responses, $this->save_one_cell($sheet, $cells[$i]));
 
@@ -174,17 +180,23 @@ class GridCellConnector {
 			$expr = $this->replaceAreas($expr);
 			$cell['parsed'] = $expr;
 			$triggers = $this->getTriggers($expr);
-			$coord = SpreadSheetCell::getColName($cell['col']).$cell['row'];
-			$query = "DELETE FROM {$this->db_prefix}triggers WHERE `source`='{$coord}'";
-			$this->wrapper->query($query);
-			for ($i = 0; $i < count($triggers); $i++)
-				$triggers[$i] = "('{$triggers[$i]}', '{$coord}')";
-			$triggers = implode(", ", $triggers);
-			$query = "INSERT INTO {$this->db_prefix}triggers (`trigger`, `source`) VALUES {$triggers}";
-			$this->wrapper->query($query);
 		} else {
 			$cell['parsed'] = $cell['value'];
+			$triggers = array();
 		}
+		
+		$coord = SpreadSheetCell::getColName($cell['col']).$cell['row'];
+		$sheet = $this->request->get("sheet");
+		$query = "DELETE FROM {$this->db_prefix}triggers WHERE `source`='".$this->e($coord)."' AND `sheetid`='".$this->e($sheet)."'";
+		$this->wrapper->query($query);
+		for ($i = 0; $i < count($triggers); $i++)
+			$triggers[$i] = "('".$this->e($sheet)."', '".$this->e($triggers[$i])."', '".$this->e($coord)."')";
+		$triggers = implode(", ", $triggers);
+		if ($triggers) {
+			$query = "INSERT INTO {$this->db_prefix}triggers (`sheetid`, `trigger`, `source`) VALUES {$triggers}";
+			$this->wrapper->query($query);
+		}
+
 		return $cell;
 	}
 
@@ -207,7 +219,7 @@ class GridCellConnector {
 
 
 	public function replaceAreas($expr) {
-		$expr = preg_replace_callback("/([A-Z]+)(\d+):([A-Z]+)(\d+)/i", Array($this, "replaceAreasCallback"), $expr);
+		$expr = preg_replace_callback("/\\$?([A-Z]+)\\$?(\d+):\\$?([A-Z]+)\\$?(\d+)/i", Array($this, "replaceAreasCallback"), $expr);
 		return $expr;
 	}
 
@@ -216,6 +228,13 @@ class GridCellConnector {
 		$c1_row = (int) $matches[2];
 		$c2_col = SpreadSheetCell::getColIndex($matches[3]);
 		$c2_row = (int) $matches[4];
+		
+		if ($c1_col > $c2_col)
+			list($c2_col, $c1_col) = array($c1_col, $c2_col);
+		
+		if ($c1_row > $c2_row)
+			list($c2_row, $c1_row) = array($c1_row, $c2_row);
+
 
 		$diap = Array();
 		for ($i = $c1_row; $i <= $c2_row; $i ++) {
@@ -236,14 +255,16 @@ class GridCellConnector {
 
 
 	public function replaceCells($expr) {
-		$expr = preg_replace_callback("/([A-Z]+\d+)([^\(]?)/i", Array($this, "replaceCellsCallback"), $expr);
+		$expr = preg_replace_callback("/(\\$?[A-Z]+\\$?\d+)([^\(]?)/i", Array($this, "replaceCellsCallback"), $expr);
 		return $expr;
 	}
 
 	public function replaceCellsCallback($matches) {
 		// LOG10 is a function, not a cell!
 		if ($matches[0] == 'LOG10') return 'LOG10';
-		$cell = $this->api->getCell($matches[1]);
+		$coord = str_replace(':', '', $matches[1]);
+		$coord = str_replace('$', '', $matches[1]);
+		$cell = $this->api->getCell($coord);
 		$value = $cell->getCalculatedValue();
 		if ($value === null) $value = '0';
 		return $value.$matches[2];
@@ -265,20 +286,20 @@ class GridCellConnector {
 			$status = "deleted";
 		else {
 			// if the same cell already save in DB we have to update it, have to insert it otherwise
-			$res = $this->wrapper->query("SELECT * FROM {$this->db_prefix}data WHERE sheetid='{$sheet}' AND columnid='{$cell['col']}' AND rowid='{$cell['row']}'");
-			$result = $this->wrapper->next($res);
+			$res = $this->wrapper->query("SELECT * FROM {$this->db_prefix}data WHERE sheetid='".$this->e($sheet)."' AND columnid='".$this->e($cell['col'])."' AND rowid='".$this->e($cell['row'])."'");
+			$result = $this->wrapper->get_next($res);
 			$status = ($result != false) ? "updated" : "inserted";
 		}
 		// action running
 		switch ($status) {
 			case 'inserted':
-				$res = $this->wrapper->query("INSERT INTO {$this->db_prefix}data (sheetid, columnid, rowid, data, style, parsed, calc) VALUES ('{$sheet}', {$cell['col']}, {$cell['row']}, '{$cell['value']}', '{$cell['style']}', '{$cell['parsed']}', '{$cell['calc']}')");
+				$res = $this->wrapper->query("INSERT INTO {$this->db_prefix}data (sheetid, columnid, rowid, data, style, parsed, calc) VALUES ('".$this->e($sheet)."', ".$this->e($cell['col']).", ".$this->e($cell['row']).", '".$this->e($cell['value'])."', '".$this->e($cell['style'])."', '".$this->e($cell['parsed'])."', '".$this->e($cell['calc'])."')");
 				break;
 			case 'updated':
-				$res = $this->wrapper->query("UPDATE {$this->db_prefix}data SET data='{$cell['value']}', parsed='{$cell['parsed']}', calc='{$cell['calc']}', style='{$cell['style']}' WHERE sheetid='{$sheet}' AND columnid='{$cell['col']}' AND rowid='{$cell['row']}'");
+				$res = $this->wrapper->query("UPDATE {$this->db_prefix}data SET data='".$this->e($cell['value'])."', parsed='".$this->e($cell['parsed'])."', calc='".$this->e($cell['calc'])."', style='".$this->e($cell['style'])."' WHERE sheetid='".$this->e($sheet)."' AND columnid='".$this->e($cell['col'])."' AND rowid='".$this->e($cell['row'])."'");
 				break;
 			case 'deleted':
-				$res = $this->wrapper->query("DELETE FROM {$this->db_prefix}data WHERE sheetid='{$sheet}' AND columnid='{$cell['col']}' AND rowid='{$cell['row']}'");
+				$res = $this->wrapper->query("DELETE FROM {$this->db_prefix}data WHERE sheetid='".$this->e($sheet)."' AND columnid='".$this->e($cell['col'])."' AND rowid='".$this->e($cell['row'])."'");
 				break;
 		}
 		$response = Array();
@@ -290,17 +311,17 @@ class GridCellConnector {
 
 		if ($cell['calc'] === '#CIRC_REFERENCE') return $response;
 		$processed[$coord] = true;
-		$query = "SELECT * FROM {$this->db_prefix}triggers WHERE `trigger`='{$coord}'";
+		$query = "SELECT * FROM {$this->db_prefix}triggers WHERE `trigger`='".$this->e($coord)."' AND `sheetid`='".$this->e($sheet)."'";
 		$result = $this->wrapper->query($query);
 		$triggers = Array();
-		while ($trigger = $this->wrapper->next($result))
+		while ($trigger = $this->wrapper->get_next($result))
 			$triggers[] = $trigger['source'];
 
 		for ($i = 0; $i < count($triggers); $i++) {
 			$coords = SpreadSheetCell::parse_coord($triggers[$i]);
-			$query = "SELECT * FROM {$this->db_prefix}data WHERE `sheetid`='{$sheet}' AND `rowid`='{$coords['row']}' AND `columnid`={$coords['col']}";
+			$query = "SELECT * FROM {$this->db_prefix}data WHERE `sheetid`='".$this->e($sheet)."' AND `rowid`='".$this->e($coords['row'])."' AND `columnid`=".$this->e($coords['col'])."";
 			$res = $this->wrapper->query($query);
-			$obj = $this->wrapper->next($res);
+			$obj = $this->wrapper->get_next($res);
 			$cell = Array(
 				"row" => $obj['rowid'],
 				"col" => $obj['columnid'],
@@ -335,19 +356,19 @@ class GridCellConnector {
 		$width = $this->request->get("width");
 		$width = ($width == "false") ? 50 : $width;
 		// detects action type
-		$res = $this->wrapper->query("SELECT * FROM {$this->db_prefix}header WHERE sheetid='{$sheet}' AND columnid='{$col}'");
-		$result = $this->wrapper->next($res);
+		$res = $this->wrapper->query("SELECT * FROM {$this->db_prefix}header WHERE sheetid='".$this->e($sheet)."' AND columnid='".$this->e($col)."'");
+		$result = $this->wrapper->get_next($res);
 		$status = ($result != false) ? "updated" : "inserted";
 		// action run
 		switch ($status) {
 			case 'inserted':
-				$res = $this->wrapper->query("INSERT INTO {$this->db_prefix}header VALUES ('{$sheet}', {$col}, '{$name}', {$width})");
+				$res = $this->wrapper->query("INSERT INTO {$this->db_prefix}header VALUES ('".$this->e($sheet)."', ".$this->e($col).", '".$this->e($name)."', ".$this->e($width).")");
 				break;
 			case 'updated':
-				$res = $this->wrapper->query("UPDATE {$this->db_prefix}header SET label='{$name}', width={$width} WHERE sheetid='{$sheet}' AND columnid='{$col}'");
+				$res = $this->wrapper->query("UPDATE {$this->db_prefix}header SET label='".$this->e($name)."', width=".$this->e($width)." WHERE sheetid='".$this->e($sheet)."' AND columnid='".$this->e($col)."'");
 				break;
 			case 'deleted':
-				$res = $this->wrapper->query("DELETE FROM {$this->db_prefix}header WHERE sheetid='{$sheet}' AND columnid='{$col}'");
+				$res = $this->wrapper->query("DELETE FROM {$this->db_prefix}header WHERE sheetid='".$this->e($sheet)."' AND columnid='".$this->e($col)."'");
 				break;
 		}
 		// send response
@@ -374,8 +395,8 @@ class GridCellConnector {
 		if ($this->read_only == true) return false;
 		$key = $this->request->get('key');
 		$sheet = $this->request->get('sheet');
-		$res = $this->wrapper->query("SELECT `key` FROM {$this->db_prefix}sheet WHERE sheetid='{$sheet}'");
-		$sheetkey = $this->wrapper->next($res);
+		$res = $this->wrapper->query("SELECT `key` FROM {$this->db_prefix}sheet WHERE sheetid='".$this->e($sheet)."'");
+		$sheetkey = $this->wrapper->get_next($res);
 		$sheetkey = $sheetkey['key'];
 		if (($sheetkey == null)||($sheetkey == $key))
 			return true;
@@ -411,9 +432,9 @@ class GridCellConnector {
 		$sheet = ($sheet !== false) ? $sheet : $this->request->get('sheet');
 		$config = $this->request->get('sh_cfg');
 		if ($config == false) {
-			$res = $this->wrapper->query("SELECT cfg FROM {$this->db_prefix}sheet WHERE sheetid='{$sheet}'");
+			$res = $this->wrapper->query("SELECT cfg FROM {$this->db_prefix}sheet WHERE sheetid='".$this->e($sheet)."'");
 			if ($res !== false)
-				$item = $this->wrapper->next($res);
+				$item = $this->wrapper->get_next($res);
 			else
 				$item = Array('cfg' => '');
 			$config = (isset($item['cfg'])) ? $item['cfg'] : '';
@@ -423,6 +444,9 @@ class GridCellConnector {
 		return $config;
 	}
 
+	protected function e($str) {
+		return $this->wrapper->escape($str);
+	}
 }
 
 class xmlDriver {
@@ -491,43 +515,57 @@ class xmlDriver {
 
 class jsonDriver {
 
+	protected $result = array();
+	
 	public function start($sheet, $config, $read_only = false) {
-		$start = "{ \"sheetid\": \"{$sheet}\", ";
-		$start .= "\"config\": \"{$config}\", ";
-		$start .= ($read_only == true) ? "\"readonly\": true, " : "\"readonly\": false, ";
-		return $start;
+		$this->result["sheetid"] = $sheet;
+		$this->result["config"] = $config;
+		$this->result["readonly"] = ($read_only == true) ? true : false;
+		return "";
 	}
 
 	public function end() {
-		return " }";
+		return json_encode($this->result);
 	}
 
 	public function cellsStart() {
-		return "\"cells\": [";
+		$this->result["cells"] = array();
+		return "";
 	}
 
 	public function cellsEnd() {
-		return " ]";
+		return "";
 	}
 
 	public function cellToOut($obj) {
-		$result = "{ \"row\": \"{$obj['rowid']}\", \"col\": \"{$obj['columnid']}\", ";
-		$result .= ($obj['style'] != '') ? " \"style\": \"{$obj['style']}\", " : "";
-		$result .= "\"text\": \"{$obj['data']}\", \"calc\": \"{$obj['calc']}\" }";
-		return $result;
+		$cell = array(
+			"row" => $obj["rowid"],
+			"col" => $obj["columnid"],
+			"text" => $obj["data"],
+			"calc" => $obj["calc"]
+		);
+		if ($obj["style"] !== "") $cell["style"] = $obj["style"];
+		$this->result["cells"][] = $cell;
+		return "";
 	}
 
 	public function headStart() {
-		return "\"head\": [ ";
+		$this->result["head"] = array();
+		return "";
 	}
 
 	public function headEnd() {
-		return " ], ";
+		return "";
 	}
 
 	public function headToOut($obj) {
-		$result = "{ \"col\": \"{$obj['columnid']}\", \"width\": \"{$obj['width']}\", \"label\": \"{$obj['label']}\" }";
-		return $result;
+		$cell = array(
+			"col" => $obj["columnid"],
+			"width" => $obj["width"],
+			"label" => $obj["label"]
+		);
+		$this->result["head"][] = $cell;
+		return "";
 	}
 
 	public function header() {
@@ -543,15 +581,27 @@ class jsonDriver {
 	}
 
 	public function error_response($row, $col) {
-		return "{ row: '{$row}', col: '{$col}', type: 'error' }";
+		$result = array(
+			"row" => $row,
+			"col" => $col,
+			"type" => "error"
+		);
+		return json_encode($result);
 	}
 
 	public function success_response($row, $col, $value, $calc) {
-		return "{ row: '{$row}', col: '{$col}', text: '{$value}', calc: '{$calc}', type: 'updated' }";
+		$result = array(
+			"row" => $row,
+			"col" => $col,
+			"text" => $value,
+			"calc" => $calc,
+			"type" => 'updated'
+		);
+		return json_encode($result);
 	}
 
 	public function separator() {
-		return ', ';
+		return ",";
 	}
 }
 

@@ -11,7 +11,9 @@ function SpreadSheetCss() {
 		italic: "false",
 		color: "000000",
 		bgcolor: "ffffff",
-		align: "left"
+		align: "left",
+		validator: "none",
+		lock: "false"
 	};
 }
 
@@ -54,7 +56,7 @@ SpreadSheetCss.prototype = {
 	get_css: function() {
 		var css = '';
 		for (var i in this.rules)
-			css += this[i + "_to_css"](this.rules[i]);
+			if (this[i + "_to_css"]) css += this[i + "_to_css"](this.rules[i]);
 
 		return css;
 	},
@@ -83,17 +85,34 @@ SpreadSheetCss.prototype = {
 		return "color:#"+value+";";
 	},
 
+	validator_to_css: function(value){
+		return "";
+	},
+
+	lock_to_css: function(value){
+		return "";
+	},
+
 	serialize: function() {
 		var style = [];
 		for (var i in this.rules)
-			style.push(i + ":" + this.rules[i]);
+			if (this.rules[i] == 'true')
+				style.push('1');
+			else if (this.rules[i] == 'false')
+				style.push('0');
+			else
+				style.push(this.rules[i]);
 		return style.join(";");
 	},
 	unserialize: function(style) {
 		style = style.split(';');
-		for (var i = 0; i < style.length; i++) {
-			var rule = style[i].split(':');
-			this.rules[rule[0]] = rule[1];
+		var c = 0;
+		for (var i in this.rules) {
+			var value = style[c];
+			if (value == '0') value = 'false';
+			if (value == '1') value = 'true';
+			this.rules[i] = value;
+			c++;
 		}
 	}
 };

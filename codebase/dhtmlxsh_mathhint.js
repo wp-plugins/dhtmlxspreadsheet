@@ -226,20 +226,22 @@ var SpreadSheetMathHint = {
 			}, 10);
 			return true;
 		};
-		input.onkeydown = function(e) {
-			e = e||window.event;
-			var code = e.keyCode||e.which;
-			if ((code === 9)&&(SpreadSheetMathHint.used(true) === true)) {
-				return (ssheet.grid.editor ? true : false);
-			}
-			if (code !== 13) {
-				var el = e.srcElement||e.target;
-				window.setTimeout(function() {
-					self.lookAtCursor(el);
-				}, 10);
-			}
-			return self.mathKeyDown(e);
-		};
+		if (!input._math_added)
+			dhtmlxEvent(input, "keydown", function(e) {
+				e = e||window.event;
+				var code = e.keyCode||e.which;
+				if ((code === 9)&&(SpreadSheetMathHint.used(true) === true)) {
+					return (ssheet.grid.editor ? true : false);
+				}
+				if (code !== 13) {
+					var el = e.srcElement||e.target;
+					window.setTimeout(function() {
+						self.lookAtCursor(el);
+					}, 10);
+				}
+				return self.mathKeyDown(e);
+			});
+		input._math_added = true;
 		window.setTimeout(function() {
 			self.showBorders(input);
 			self.lookAtCursor(input);
@@ -291,6 +293,7 @@ var SpreadSheetMathHint = {
 			if (this.used()) {
 				input.ssheet.grid.clearBorderSelection();
 				input.ssheet.mathSave(input);
+				input.ssheet.grid._key_events.k13_0_0();
 				return true;
 			} else {
 				input.ssheet.grid.autocomplete = true;
@@ -320,7 +323,7 @@ var SpreadSheetMathHint = {
 		}
 		input.ssheet.grid.enableBorderSelection(true);
 		input.ssheet.grid.clearBorderSelection();
-		var regexp = /([A-Z]+)(\d+):([A-Z]+)(\d+)/i;
+		var regexp = /\$?([A-Z]+)\$?(\d+):\$?([A-Z]+)\$?(\d+)/i;
 
 		var value = input.value;
 		while (regexp.test(value)) {
@@ -333,7 +336,7 @@ var SpreadSheetMathHint = {
 			input.ssheet.grid.addBorderSelection(LeftTopRow, LeftTopCol, RightBottomRow, RightBottomCol);
 		}
 
-		regexp = /([A-Z]+)(\d+)/i;
+		regexp = /\$?([A-Z]+)\$?(\d+)/i;
 		while (regexp.test(value)) {
 			var matches = regexp.exec(value);
 			value = value.replace(regexp, '');
@@ -347,11 +350,11 @@ var SpreadSheetMathHint = {
 
 	setRange: function(range) {
 		var formula = this.input.value.substring(0, this.cursor);
-		var regexp = /([A-Z]+)(\d+):([A-Z]+)(\d+)$/i;
+		var regexp = /\$?([A-Z]+)\$?(\d+):\$?([A-Z]+)\$?(\d+)$/i;
 		if (regexp.test(formula)) {
 			formula = formula.replace(regexp, range);
 		} else {
-			regexp = /([A-Z]+)(\d+)$/i;
+			regexp = /\$?([A-Z]+)\$?(\d+)$/i;
 			if (regexp.test(formula))
 				formula = formula.replace(regexp, range);
 			else {
@@ -548,14 +551,14 @@ var SpreadSheetMathHint = {
 		btns[1].onclick = function() { self.functions_escape(callback); };
 		var sel = this._all_cont.getElementsByTagName('select');
 		sel = sel[0];
-		sel.onkeydown = function(e) {
+		dhtmlxEvent(sel, "keydown", function() {
 			var code = e.keyCode||e.which;
 			if (code === 13) self.functions_enter(callback);
 			if (code == 27) self.functions_escape(callback);
-		};
-		sel.ondblclick = function() {
+		});
+		dhtmlxEvent(sel, "dblclick", function() {
 			self.functions_enter(callback);
-		};
+		});
 		sel.focus();
 		this.functionDetails(this.details[0].name);
 	},
