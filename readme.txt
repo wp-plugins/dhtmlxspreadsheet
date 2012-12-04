@@ -4,7 +4,7 @@ Donate link: http://dhtmlx.com/docs/products/licenses.shtml
 Tags: spreadsheet, table, data table, datagrid, data grid, excel, database, grid
 Requires at least: 3.0
 Tested up to: 3.4.2
-Stable tag: 1.0
+Stable tag: 2.0
 
 
 This plugin allows you to quickly create an Excel-like, editable spreadsheet with basic cell formatting and math functions support.
