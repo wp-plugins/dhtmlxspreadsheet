@@ -37,6 +37,7 @@ $sh_cfg->set('sheet', 1);
 
 register_activation_hook(__FILE__, 'sh_activate');
 add_filter('the_content', 'sh_check');
+sh_load_dump();
 
 function sh_check($content) {
 
